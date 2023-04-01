@@ -244,5 +244,3 @@ if [ "$nginx" = "y" ]; then
     successMessage "nginx restarted successfully"
   fi
 fi
-
-#sudo wget -O - https://raw.githubusercontent.com/mrrezakarimi99/make_project/main/deploy.sh | sudo bash
