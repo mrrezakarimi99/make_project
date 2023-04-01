@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #Global Functions
+
 infoMessage(){
   echo -e "\e[34m$1\e[0m"
 }
@@ -13,7 +14,8 @@ errorMessage(){
   echo -e "\e[31m$1\e[0m"
 }
 
-
+#end Global Functions
+#Main Functions
 
 update(){
   echo "update ..."
@@ -135,131 +137,110 @@ install_composer() {
     fi
 }
 
+createDataBase(){
+  infoMessage "please enter mysql root password"
+  read -r password
+  mysql -u root -p"$password" <<EOF
+  CREATE DATABASE $1;
+  CREATE USER '$2'@'localhost' IDENTIFIED BY '$3';
+  GRANT ALL PRIVILEGES ON $1.* TO '$2'@'localhost';
+  FLUSH PRIVILEGES;
+  exit
+EOF
+  successMessage "database created successfully"
+}
 
-update
-upgrade
+#end Main Functions
 
-installRequired
+infoMessage "Welcome to deploy script"
+infoMessage "This script will install nginx, mysql, php, docker and docker-compose"
+infoMessage "This script make with love by sourceInja team (https://sourceinja.ir)"
+infoMessage "======================================================================="
+infoMessage "        _____ ____  __  ______  _________________   __    _____        "
+infoMessage "       / ___// __ \/ / / / __ \/ ____/ ____/  _/ | / /   / /   |       "
+infoMessage "       \__ \/ / / / / / / /_/ / /   / __/  / //  |/ /_  / / /| |       "
+infoMessage "      ___/ / /_/ / /_/ / _, _/ /___/ /____/ // /|  / /_/ / ___ |       "
+infoMessage "     /____/\____/\____/_/ |_|\____/_____/___/_/ |_/\____/_/  |_|       "
+infoMessage "======================================================================="
+infoMessage "Do you want to update and upgrade (y/n)"
+read -r i
+if [ "$i" = "y" ];
+then
+  update
+  upgrade
+fi
 
-for i in nginx mysql php docker docker_compose
-do
-    getInstallation $i
-done
+infoMessage "Do you want to install required packages (y/n)"
+read -r i
+if [ "$i" = "y" ];
+then
+  installRequired
+fi
+
+infoMessage "Do you want to install nginx, mysql, php, docker and docker-compose (y/n)"
+read -r i
+if [ "$i" = "y" ];
+then
+  for i in nginx mysql php docker docker_compose
+  do
+      getInstallation $i
+  done
+fi
 
 #get directory project
 infoMessage "Please enter directory project from /home/$USER (for example: project/foo)"
-read -r directory
-cd /home/"$USER"/"$directory" || exit
+read -r -e -p "Please enter the path to the directory you want to use: " -i "/home/$USER"
+if [ ! -d "$REPLY" ]; then
+    infoMessage "Creating directory $REPLY"
+    mkdir -p "$REPLY"
+fi
+cd "$REPLY" || exit
 
 #git clone base project
 git clone https://gitlab.com/sourceInja/core/laravel-core.git
+#move all file to root directory with .env file
 mv laravel-core/* .
+mv laravel-core/.editorconfig .
+mv laravel-core/.env.example .
+mv laravel-core/.gitignore .
+mv laravel-core/.gitattributes .
+mv laravel-core/.styleci.yml .
 rm -rf laravel-core
 rm -rf .git
+chown -R $USER:$USER .
 install_composer
 composer install
 
 infoMessage "Please enter application name"
 read -r app_name
-infoMessage "Please enter application url"
-read -r app_url
+read -r -e -p "Please enter application url : " -i "http://localhost"
 infoMessage "Please enter database name"
 read -r db_name
 infoMessage "Please enter database user name"
 read -r db_user
 infoMessage "Please enter database user password"
 read -r db_pass
+#create database
+createDataBase $db_name $db_user $db_pass
 infoMessage "making .env file ..."
-cat > .env <<EOF
-APP_NAME=$app_name
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=$app_url
-
-LOG_CHANNEL=stack
-LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=$db_name
-DB_USERNAME=$db_user
-DB_PASSWORD=$db_pass
-
-BROADCAST_DRIVER=log
-CACHE_DRIVER=file
-FILESYSTEM_DRIVER=local
-QUEUE_CONNECTION=sync
-SESSION_DRIVER=file
-SESSION_LIFETIME=120
-
-MEMCACHED_HOST=127.0.0.1
-
-REDIS_HOST=127.0.0.1
-REDIS_PASSWORD=null
-REDIS_PORT=6379
-
-MAIL_MAILER=mailgun
-MAIL_HOST=smtp.mailgun.org
-MAIL_PORT=587
-MAIL_USERNAME=postmaster@sandboxfc845f8eb5634f37bd20172181f6653a.mailgun.org
-MAIL_PASSWORD=d1532a8b6bd68916ea8a6aef68d019f6-1b3a03f6-1f04cd5e
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=info@chainobin.com
-MAIL_FROM_NAME="${APP_NAME}"
-MAILGUN_DOMAIN=sandboxfc845f8eb5634f37bd20172181f6653a.mailgun.org
-MAILGUN_SECRET=d1532a8b6bd68916ea8a6aef68d019f6-1b3a03f6-1f04cd5e
-
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_DEFAULT_REGION=us-east-1
-AWS_BUCKET=
-AWS_USE_PATH_STYLE_ENDPOINT=false
-
-PUSHER_APP_ID=
-PUSHER_APP_KEY=
-PUSHER_APP_SECRET=
-PUSHER_APP_CLUSTER=mt1
-
-MIX_PUSHER_APP_KEY="${PUSHER_APP_KEY}"
-MIX_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
-
-L5_SWAGGER_GENERATE_ALWAYS=true
-L5_SWAGGER_UI_DOC_EXPANSION=list
-
-EOF
+cp .env.example .env
+sed -i "s/__APP_NAME__/$app_name/g" .env
+sed -i "s/__APP_URL__/$REPLY/g" .env
+sed -i "s/__DB_DATABASE__/$db_name/g" .env
+sed -i "s/__DB_USERNAME__/$db_user/g" .env
+sed -i "s/__DB_PASSWORD__/$db_pass/g" .env
 successMessage "env file created successfully"
 
 infoMessage "Do you want to setup nginx? (y/n)"
 read -r nginx
 if [ "$nginx" = "y" ]; then
-    cd /etc/nginx/conf.d/ || exit
-    touch "$app_name".conf
-    cat > "$app_name".conf <<EOF
-      server {
-          listen      80;
-          server_name  $app_url;
-          index index.php index.html index.htm;
-          client_max_body_size 1000M;
-
-          access_log  /var/log/nginx/$app_name.access.log;
-          error_log  /var/log/nginx/$app_name.error.log;
-          root /home/$USER/$directory/public;
-          location / {
-              try_files $uri $uri/ /index.php?$query_string;
-          }
-          location ~ \.php$ {
-              try_files $uri =404;
-              fastcgi_split_path_info ^(.+\.php)(/.+)$;
-              fastcgi_pass unix:/run/php/php-fpm.sock;
-              fastcgi_index index.php;
-              fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-              include fastcgi_params;
-          }
-      }
-EOF
+    mv nginx.conf.example "$app_name".conf
+    sed -i "s/__DOMAIN__/$app_name/g" "$app_name".conf
+    finalPath="/home/$USER/$directory/public"
+    sed -i "s/__PATH__/$finalPath/g" "$app_name".conf
+    cp "$app_name".conf /etc/nginx/sites-available
+    ln -s /etc/nginx/sites-available/"$app_name".conf /etc/nginx/sites-enabled/
+    rm "$app_name".conf
     successMessage "nginx config file created successfully"
     infoMessage "Do you want to restart nginx? (y/n)"
     read -r restart_nginx
@@ -268,3 +249,5 @@ EOF
         successMessage "nginx restarted successfully"
     fi
 fi
+
+#sudo wget -O - https://raw.githubusercontent.com/mrrezakarimi99/make_project/main/deploy.sh | sudo bash
