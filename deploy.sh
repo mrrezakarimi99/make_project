@@ -208,7 +208,8 @@ composer install
 
 infoMessage "Please enter application name"
 read -r app_name
-read -r -e -p "Please enter application url : " -i "http://localhost"
+infoMessage "Please enter application url"
+read -r app_url
 infoMessage "Please enter database name"
 read -r db_name
 infoMessage "Please enter database user name"
@@ -220,7 +221,7 @@ createDataBase $db_name $db_user $db_pass
 infoMessage "making .env file ..."
 cp .env.example .env
 sed -i "s/__APP_NAME__/$app_name/g" .env
-sed -i "s/__APP_URL__/$REPLY/g" .env
+sed -i "s/__APP_URL__/$app_url/g" .env
 sed -i "s/__DB_DATABASE__/$db_name/g" .env
 sed -i "s/__DB_USERNAME__/$db_user/g" .env
 sed -i "s/__DB_PASSWORD__/$db_pass/g" .env
